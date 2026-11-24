@@ -1,0 +1,16 @@
+---
+interface Props {
+  label: string;
+  amount: string;
+  class?: string;
+}
+const { label, amount, class: className } = Astro.props;
+---
+
+<div class:list={["rounded-card bg-band p-7 text-white", className]}>
+  <p class="mb-2 text-[13px] uppercase tracking-[.08em] text-[#B9CFCD]">{label}</p>
+  <div class="font-display text-[clamp(32px,6vw,50px)] leading-[1.1] tracking-[-.01em] tabular-nums">
+    {amount}
+  </div>
+  <div class="mt-2.5 text-[15px] text-band-text"><slot /></div>
+</div>

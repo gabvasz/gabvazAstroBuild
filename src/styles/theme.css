@@ -1,0 +1,61 @@
+/* Dark theme: overrides the design-system tokens declared in @theme (global.css). */
+:root {
+  --glass-highlight: rgb(255 255 255 / 0.4);
+  --glass-rim: rgb(255 255 255 / 0.6);
+  --glass-shadow: rgb(34 8 0 / 0.25);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper: #170f0b;
+  --color-surface: #221712;
+  --color-band: #0e0603;
+  --color-ink: #f7f6f2;
+  --color-muted: #a9a398;
+  --color-border: #3a2d25;
+  --color-chip: #2b201a;
+  --color-accent-soft: #3b2113;
+  --color-accent-ink: #ff9a5c;
+
+  --glass-highlight: rgb(255 255 255 / 0.12);
+  --glass-rim: rgb(255 255 255 / 0.16);
+  --glass-shadow: rgb(0 0 0 / 0.55);
+}
+
+/* Theme icons: moon in light mode, sun in dark mode. */
+.theme-icon-sun {
+  display: none;
+}
+:root[data-theme="dark"] .theme-icon-sun {
+  display: block;
+}
+:root[data-theme="dark"] .theme-icon-moon {
+  display: none;
+}
+
+/* Liquid glass header */
+.glass {
+  --mx: 50%;
+  --my: 0px;
+  background:
+    radial-gradient(140px circle at var(--mx) var(--my), var(--glass-highlight), transparent 70%),
+    color-mix(in srgb, var(--color-surface) 50%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 rgb(0 0 0 / 0.05),
+    0 10px 30px -10px var(--glass-shadow);
+}
+
+/* Dock items */
+.dock-item {
+  will-change: transform;
+  transform-origin: center;
+}
+.dock-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

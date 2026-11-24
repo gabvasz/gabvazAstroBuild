@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "OTJubilee Diamond";
+  src: url("/fonts/OTJubilee-Diamond.woff2") format("woff2"),
+    url("/fonts/OTJubilee-Diamond.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Fonts */
+  --font-display: "OTJubilee Diamond", "Domaine", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Commit Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Brand & surfaces */
+  --color-paper: #F7F6F2;
+  --color-surface: #FFFFFF;
+  --color-band: #220800;
+  --color-band-soft: #8FB8B6;
+  --color-band-text: #DDE9E8;
+  --color-ink: #220800;
+  --color-muted: #6B6A64;
+  --color-border: #DEDBD3;
+  --color-chip: #F1EFE9;
+  --color-accent: #ff6c18;
+  --color-accent-soft: #E3EEED;
+  --color-accent-ink: #a43b00;
+  --color-logo: #e94e1b;
+
+  /* Neutral ramp */
+  --color-void-black: #000000;
+  --color-surface-gradient: #0b0e14;
+  --color-graphite-hairline: #292d30;
+  --color-charcoal: #464a4d;
+  --color-iron: #6e727a;
+  --color-ash-gray: #a1a4a5;
+  --color-smoke-gray: #abafb4;
+  --color-bone-white: #f0f0f0;
+
+  /* Secondary & status */
+  --color-iris-violet: #9281f7;
+  --color-iris-violet-glow: #baa7ff;
+  --color-signal-blue: #3b9eff;
+  --color-sky-blue: #70b8ff;
+  --color-pulse-green: #3ad389;
+  --color-amber: #ffca16;
+  --color-amber-glow: #ffd60a;
+  --color-crimson: #ff6465;
+  --color-alarm-red: #ff9592;
+
+  /* Radius */
+  --radius-lg: 10px;
+  --radius-card: 14px;
+
+  /* Shadows */
+  --shadow-hairline: rgba(176, 199, 217, 0.145) 0 0 0 1px;
+  --shadow-halo: #000 0 0 0 8px;
+  --shadow-card: rgba(0, 0, 0, 0.1) 0 1px 3px 0, rgba(0, 0, 0, 0.1) 0 1px 2px -1px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper font-sans text-[17px] leading-[1.6] text-ink antialiased;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: -0.01em;
+  }
+  a:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+}

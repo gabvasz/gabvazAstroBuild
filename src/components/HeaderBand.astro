@@ -1,0 +1,25 @@
+---
+import Container from "./Container.astro";
+
+interface Props {
+  title: string;
+  kicker?: string;
+}
+const { title, kicker } = Astro.props;
+---
+
+<header class="bg-band pb-11 pt-28 text-white">
+  <Container>
+    {
+      kicker && (
+        <p class="mb-3 text-xs font-semibold uppercase tracking-[.16em] text-band-soft">
+          {kicker}
+        </p>
+      )
+    }
+    <h1 class="text-[clamp(34px,5.5vw,56px)] leading-[1.08]">{title}</h1>
+    <div class="mt-3.5 max-w-[60ch] text-[#B9CFCD]">
+      <slot />
+    </div>
+  </Container>
+</header>

@@ -1,0 +1,193 @@
+---
+import {
+  getLangFromUrl,
+  getLocalizedPath,
+  switchLangPath,
+  useTranslations,
+} from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const otherLang = lang === "en" ? "pt-br" : "en";
+const otherPath = switchLangPath(Astro.url, otherLang);
+
+const strip = (p: string) => p.replace(/\/+$/, "") || "/";
+const here = strip(Astro.url.pathname);
+
+const links = [
+  { label: t("nav.about"), href: getLocalizedPath("/about", lang) },
+  { label: t("nav.projects"), href: getLocalizedPath("/projects", lang) },
+  { label: t("nav.contact"), href: getLocalizedPath("/contact", lang) },
+].map((l) => ({ ...l, current: strip(l.href) === here }));
+
+const item =
+  "dock-item grid h-10 place-items-center rounded-full text-sm font-semibold text-ink/80 transition-colors hover:text-ink";
+---
+
+<header
+  data-dock
+  class="glass fixed left-1/2 top-4 z-50 flex w-[min(1040px,calc(100%-1.5rem))] -translate-x-1/2 items-center justify-between rounded-full px-1.5 py-1.5"
+>
+  <nav aria-label={t("nav.label")} class="flex items-center gap-0.5 sm:gap-1">
+    {
+      links.map((l) => (
+        <a
+          href={l.href}
+          aria-current={l.current ? "page" : undefined}
+          class:list={[item, "px-3 sm:px-4", l.current && "bg-ink/10 !text-ink"]}
+        >
+          {l.label}
+        </a>
+      ))
+    }
+  </nav>
+
+  <div class="flex items-center gap-0.5 sm:gap-1">
+    <a
+      href={otherPath}
+      hreflang={otherLang === "pt-br" ? "pt-BR" : "en"}
+      aria-label={t("toggle.lang")}
+      class:list={[item, "gap-1.5 px-3"]}
+    >
+      <span class="flex items-center gap-1.5">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M2 12h20"></path>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <span class="text-[13px] tracking-wide">{otherLang === "pt-br" ? "PT" : "EN"}</span>
+      </span>
+    </a>
+
+    <button
+      type="button"
+      data-theme-toggle
+      aria-label={t("toggle.theme")}
+      aria-pressed="false"
+      class:list={[item, "w-10"]}
+    >
+      <svg
+        class="theme-icon-moon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+      </svg>
+      <svg
+        class="theme-icon-sun"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<script>
+  const root = document.documentElement;
+
+  /* ---------- Theme toggle ---------- */
+  const themeBtn = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
+  if (themeBtn) {
+    const sync = () =>
+      themeBtn.setAttribute("aria-pressed", String(root.dataset.theme === "dark"));
+    sync();
+    themeBtn.addEventListener("click", () => {
+      const next = root.dataset.theme === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try {
+        localStorage.setItem("theme", next);
+      } catch {}
+      sync();
+    });
+  }
+
+  /* ---------- Dock magnification + liquid highlight ---------- */
+  const header = document.querySelector<HTMLElement>("[data-dock]");
+  const canHover = matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (header && canHover && !reduceMotion) {
+    const items = Array.from(header.querySelectorAll<HTMLElement>(".dock-item"));
+    const MAX_SCALE = 1.45; // peak magnification
+    const SIGMA = 55; // px; how far the effect spreads to neighbours
+    const scales = items.map(() => 1);
+    let centers: number[] = [];
+    let pointerX: number | null = null;
+    let raf = 0;
+
+    const measure = () => {
+      centers = items.map((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left + r.width / 2; // scaling from the centre keeps this stable
+      });
+    };
+
+    const tick = () => {
+      raf = 0;
+      let active = pointerX !== null;
+      items.forEach((el, i) => {
+        const goal =
+          pointerX === null
+            ? 1
+            : 1 +
+              (MAX_SCALE - 1) *
+                Math.exp(-((pointerX - centers[i]) ** 2) / (2 * SIGMA * SIGMA));
+        if (Math.abs(goal - scales[i]) < 0.002) {
+          scales[i] = goal;
+        } else {
+          scales[i] += (goal - scales[i]) * 0.22;
+          active = true;
+        }
+        el.style.transform = scales[i] === 1 ? "" : `scale(${scales[i].toFixed(3)})`;
+      });
+      if (active) raf = requestAnimationFrame(tick);
+    };
+    const wake = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    header.addEventListener("pointerenter", () => {
+      measure();
+    });
+    header.addEventListener("pointermove", (e) => {
+      if (!centers.length) measure();
+      pointerX = e.clientX;
+      const r = header.getBoundingClientRect();
+      header.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      header.style.setProperty("--my", `${e.clientY - r.top}px`);
+      wake();
+    });
+    header.addEventListener("pointerleave", () => {
+      pointerX = null;
+      wake();
+    });
+    window.addEventListener("resize", () => (centers = []));
+  }
+</script>

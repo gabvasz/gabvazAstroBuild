@@ -1,0 +1,17 @@
+---
+interface Props {
+  variant?: "success" | "warning" | "error" | "info";
+}
+const { variant = "info" } = Astro.props;
+
+const styles = {
+  success: "bg-[#e6f8ef] text-[#12724a]",
+  warning: "bg-[#fff6d6] text-[#7a5b00]",
+  error: "bg-[#ffe9e9] text-[#a8272a]",
+  info: "bg-[#e4f1ff] text-[#0b5cad]",
+};
+---
+
+<span class:list={["inline-block rounded-full px-3 py-1 text-[13px] font-semibold", styles[variant]]}>
+  <slot />
+</span>

@@ -1,0 +1,31 @@
+---
+interface Props {
+  title: string;
+  /** Optional accent numeral, e.g. "01". Omit it when the content is not a sequence. */
+  number?: string;
+  class?: string;
+}
+const { title, number, class: className } = Astro.props;
+const hasTags = Astro.slots.has("tags");
+---
+
+<article
+  class:list={[
+    "grid gap-4 rounded-card border border-border bg-surface px-[22px] py-5",
+    number ? "grid-cols-[auto_1fr]" : "grid-cols-1",
+    className,
+  ]}
+>
+  {number && <div class="pt-0.5 text-sm font-semibold tabular-nums text-accent">{number}</div>}
+  <div>
+    <h3 class="mb-1.5 font-display text-xl leading-[1.3]">{title}</h3>
+    <div class="text-[14.5px] text-muted"><slot /></div>
+    {
+      hasTags && (
+        <div class="mt-3 flex flex-wrap items-center gap-1.5">
+          <slot name="tags" />
+        </div>
+      )
+    }
+  </div>
+</article>

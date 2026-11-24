@@ -1,11 +1,46 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import Layout from "../layouts/Layout.astro";
+import Container from "../components/Container.astro";
+import HeaderBand from "../components/HeaderBand.astro";
+import ItemCard from "../components/ItemCard.astro";
+import StatCard from "../components/StatCard.astro";
+import PriceBlock from "../components/PriceBlock.astro";
+import Notice from "../components/Notice.astro";
+import Status from "../components/Status.astro";
+import Tag from "../components/Tag.astro";
+import Badge from "../components/Badge.astro";
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Gab Vaz">
+  <HeaderBand kicker="Portfolio" title="Gab Vaz">
+    Warm paper, dark bands, one orange accent.
+  </HeaderBand>
+
+  <main>
+    <Container class="space-y-8 py-10">
+      <div class="grid gap-3.5 md:grid-cols-2">
+        <ItemCard title="Item card" number="01">
+          White, 1px border, 14px radius.
+          <Fragment slot="tags">
+            <Tag>Tag</Tag>
+            <Badge>3</Badge>
+          </Fragment>
+        </ItemCard>
+        <StatCard value="4" label="Stat card with accent numeral" />
+      </div>
+
+      <PriceBlock label="Valor do desenvolvimento" amount="R$ 635 a R$ 750">
+        Valor único, separado da manutenção mensal.
+      </PriceBlock>
+
+      <Notice>Notice: accent left border on a chip background.</Notice>
+
+      <div class="flex flex-wrap gap-2.5">
+        <Status variant="success">Success</Status>
+        <Status variant="warning">Warning</Status>
+        <Status variant="error">Error</Status>
+        <Status variant="info">Info</Status>
+      </div>
+    </Container>
+  </main>
 </Layout>

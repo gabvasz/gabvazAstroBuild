@@ -1,0 +1,44 @@
+---
+import { allSkills } from '../../data/skills';
+import type { FlatSkill } from '../../data/skills';
+
+export function getStaticPaths() {
+  return allSkills.map((skill) => ({
+    params: { id: skill.id },
+    props: { skill },
+  }));
+}
+
+type Props = { skill: FlatSkill };
+const { skill } = Astro.props;
+const parent = allSkills.find((s) => s.id === skill.parentId);
+const children = skill.children ?? [];
+const canonical = new URL(`/skills/${skill.id}`, Astro.site ?? Astro.url).href;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{skill.title} | Gab Vaz</title>
+    <meta name="description" content={skill.text} />
+    <link rel="canonical" href={canonical} />
+  </head>
+  <body>
+    <main>
+      <nav><a href="/#skills">← Back to skills</a></nav>
+      <h1>{skill.title}</h1>
+      <p>{skill.text}</p>
+
+      {parent && <p>Part of: <a href={`/skills/${parent.id}`}>{parent.title}</a></p>}
+
+      {children.length > 0 && (
+        <>
+          <h2>Related</h2>
+          <ul>
+            {children.map((c) => <li><a href={`/skills/${c.id}`}>{c.title}</a></li>)}
+          </ul>
+        </>
+      )}
+    </main>
+  </body>
+</html>

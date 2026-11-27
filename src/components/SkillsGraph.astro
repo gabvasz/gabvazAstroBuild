@@ -1,0 +1,497 @@
+---
+import { skills, allSkills } from '../data/skills';
+---
+<section class="skills" id="skills">
+  <h2>explore my skills</h2>
+  <div id="skills-graph" data-tree={JSON.stringify(skills)}></div>
+
+  <ul class="skills-list">
+    {allSkills.map((s) => (
+      <li><a href={`/skills/${s.id}`}>{s.title}</a>: {s.text}</li>
+    ))}
+  </ul>
+</section>
+
+<script>
+  import { hierarchy, tree } from 'd3-hierarchy';
+  import { select } from 'd3-selection';
+  import 'd3-transition';
+
+  const el = document.getElementById('skills-graph')!;
+  const data = JSON.parse(el.dataset.tree!);
+
+  /* ---------- Settings ---------- */
+  let w = el.clientWidth || 900;
+  const H = 760;                          // fixed height (matches CSS below)
+  const PAD_X = 70;                       // side padding for the widest row
+  const MAX_COL_GAP = 200;                // max horizontal distance between siblings
+  const ROW_Y = [150, 340, 520];          // y of each depth row (root, main skills, leaves)
+  const RADIUS = [34, 10, 5];
+  const MAX_TITLE_W = [220, 170, 140];    // max wrap width per depth
+  const MIN_TITLE_W = 64;
+  const TITLE_GAP = 10;                   // dot -> title
+  const LINK_GAP = 10;                    // title -> link start
+  const PANEL_GAP = 8;                    // title -> panel
+  const PANEL_PAD = 56;                   // space kept between an open panel and the next row
+  const PANEL_W = 280;
+  const EDGE = 12;                        // min distance from panel to section edge
+  const LH = 1.15;                        // title line height (em)
+  const DURATION = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450;
+
+  const root: any = hierarchy(data);
+  root.each((d: any) => { d.id = d.data.id; });
+
+  const collapse = (d: any) => {
+    if (d.children) { d._children = d.children; d.children = null; }
+  };
+  root.children?.forEach(collapse);
+
+  let openId: string | null = null;
+  let ready = false;
+  let started = false;
+
+  const svg: any = select(el).append('svg')
+    .attr('viewBox', `0 0 ${w} ${H}`)
+    .attr('role', 'tree')
+    .attr('aria-label', 'Skills tree');
+  const gLinks: any = svg.append('g').attr('class', 'links');
+  const gNodes: any = svg.append('g').attr('class', 'nodes');
+
+  const layout = tree<any>().size([1, 1]);
+
+  const hasKids = (d: any) => !!(d.children || d._children);
+  const radius = (d: any) => RADIUS[d.depth] ?? 5;
+
+  // Distance from the node centre to the top of its panel
+  const panelRel = (d: any) =>
+    d.depth === 0
+      ? radius(d) + TITLE_GAP
+      : radius(d) + TITLE_GAP + (d.th ?? 0) + PANEL_GAP;
+
+  /* ---------- Layout (top to bottom, centred) ---------- */
+  function compute() {
+    layout(root);
+    const leaves = root.leaves().length;
+    const span = Math.min(w - 2 * PAD_X, Math.max(1, leaves - 1) * MAX_COL_GAP);
+    const x0 = (w - span) / 2;
+
+    // An open panel pushes the rows below it down, so nothing overlaps
+    const shift = [0, 0, 0];
+    const o = openId ? root.descendants().find((n: any) => n.id === openId) : null;
+    if (o && o.depth < 2 && o.children) {
+      const next = o.depth + 1;
+      const bottom = ROW_Y[o.depth] + panelRel(o) + (o.ph ?? 0);
+      const need = bottom + PANEL_PAD - (ROW_Y[next] - RADIUS[next] - 6);
+      const s = Math.max(0, need);
+      for (let k = next; k < 3; k++) shift[k] = s;
+    }
+
+    root.each((d: any) => {
+      d.px = x0 + d.x * span;
+      d.py = ROW_Y[d.depth] + shift[d.depth];
+    });
+  }
+
+  // Title wrap width = free space between neighbours in the same row
+  function setAllow() {
+    const rows: any[][] = [[], [], []];
+    root.each((d: any) => rows[Math.min(d.depth, 2)].push(d));
+    rows.forEach((row, depth) => {
+      row.sort((a, b) => a.px - b.px);
+      let gap = Infinity;
+      for (let i = 1; i < row.length; i++) gap = Math.min(gap, row[i].px - row[i - 1].px);
+      const allow = Math.max(MIN_TITLE_W, Math.min(MAX_TITLE_W[depth], gap - 14));
+      row.forEach((d: any) => { d.allow = Math.round(allow); });
+    });
+  }
+
+  /* ---------- Links (vertical, never through titles or panels) ---------- */
+  const startY = (s: any) => {
+    const r = radius(s);
+    if (s.id === openId) return s.py + panelRel(s) + (s.ph ?? 0) + 16;
+    return s.depth === 0
+      ? s.py + r + 4
+      : s.py + r + TITLE_GAP + (s.th ?? 0) + LINK_GAP;
+  };
+
+  const edge = (l: any): [number, number, number, number] => {
+    const s = l.source;
+    const t = l.target;
+    const y2 = t.py - radius(t) - 6;
+    let y1 = startY(s);
+    if (y1 > y2 - 24) y1 = s.py + radius(s) + 4;
+    return [s.px, y1, t.px, y2];
+  };
+
+  const linkPath = (x1: number, y1: number, x2: number, y2: number) => {
+    const my = (y1 + y2) / 2;
+    return `M${x1},${y1}C${x1},${my} ${x2},${my} ${x2},${y2}`;
+  };
+
+  // Panel horizontal offset, clamped so it never leaves the section
+  const panelX = (d: any) => {
+    const left = Math.max(EDGE, Math.min(w - PANEL_W - EDGE, d.px - PANEL_W / 2));
+    return left - d.px;
+  };
+  const panelY = (d: any) => panelRel(d);
+
+  /* ---------- Titles: wrap, position, measure ---------- */
+  function wrapTitles(sel: any) {
+    sel.each(function (this: SVGGElement, d: any) {
+      const g: any = select(this);
+      const text: any = g.select('text.title');
+      const above = d.depth === 0;
+      const words = String(d.data.title).split(/\s+/);
+
+      text.text(null)
+        .attr('x', 0)
+        .attr('y', above ? -(radius(d) + TITLE_GAP) : radius(d) + TITLE_GAP);
+
+      const spans: any[] = [];
+      let line: string[] = [];
+      let span: any = text.append('tspan').attr('x', 0);
+      spans.push(span);
+
+      words.forEach((word) => {
+        line.push(word);
+        span.text(line.join(' '));
+        if (line.length > 1 && span.node().getComputedTextLength() > d.allow) {
+          line.pop();
+          span.text(line.join(' '));
+          line = [word];
+          span = text.append('tspan').attr('x', 0).text(word);
+          spans.push(span);
+        }
+      });
+
+      spans.forEach((s, i) =>
+        s.attr('dy', i === 0 ? (above ? `${-(spans.length - 1) * LH}em` : '0.85em') : `${LH}em`)
+      );
+
+      const box = text.node().getBBox();
+      d.tw = box.width;
+      d.th = box.height;
+      d.wrapW = d.allow;
+
+      const card: any = g.select('.card');
+      d.ph = card.node().offsetHeight || 140;
+      g.select('foreignObject.body').attr('height', d.ph + 24);
+    });
+  }
+
+  /* ---------- Interaction ---------- */
+  function collapseNode(d: any) {
+    const hidden = d.children;
+    if (openId && (openId === d.id || hidden.some((c: any) => c.descendants().some((n: any) => n.id === openId)))) {
+      openId = null;
+    }
+    d._children = d.children;
+    d.children = null;
+  }
+
+  // Keyboard: expand / collapse children only
+  function toggleChildren(d: any) {
+    if (d.depth === 0) return;
+    if (d.children) collapseNode(d);
+    else if (d._children) { d.children = d._children; d._children = null; }
+    update(d);
+  }
+
+  // Panel only
+  function toggleCard(d: any) {
+    openId = openId === d.id ? null : d.id;
+    update(d);
+  }
+
+  // Parent title: opens the panel together with the children
+  function toggleBranch(d: any) {
+    if (d._children) {
+      d.children = d._children;
+      d._children = null;
+      openId = d.id;
+    } else if (d.children) {
+      if (openId === d.id) collapseNode(d);
+      else openId = d.id;
+    }
+    update(d);
+  }
+
+  function primary(d: any) {
+    if (d.depth > 0 && hasKids(d)) toggleBranch(d);
+    else toggleCard(d);
+  }
+
+  function build(sel: any) {
+    sel.append('circle').attr('class', 'hit')
+      .attr('r', (d: any) => radius(d) + 9)
+      .on('click', (_e: any, d: any) => toggleCard(d));
+
+    sel.append('circle').attr('class', 'dot')
+      .attr('r', (d: any) => radius(d));
+
+    sel.append('text').attr('class', 'title')
+      .text((d: any) => d.data.title)
+      .on('click', (_e: any, d: any) => primary(d));
+
+    const card = sel.append('foreignObject').attr('class', 'body')
+      .attr('width', PANEL_W)
+      .append('xhtml:div').attr('class', 'card');
+
+    card.append('xhtml:button').attr('class', 'close').attr('type', 'button')
+      .attr('aria-label', 'Close').attr('tabindex', -1).text('×')
+      .on('click', (e: Event, d: any) => { e.stopPropagation(); toggleCard(d); });
+    card.append('xhtml:p').text((d: any) => d.data.text);
+    card.append('xhtml:a').attr('class', 'more').attr('tabindex', -1)
+      .attr('href', (d: any) => `/skills/${d.data.id}`).text('Read more →');
+
+    sel.on('keydown', (e: KeyboardEvent, d: any) => {
+      if ((e.target as Element).closest('a, button')) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); primary(d); }
+      else if (e.key === 'ArrowRight' && d._children) { e.preventDefault(); toggleChildren(d); }
+      else if (e.key === 'ArrowLeft' && d.children && d.depth > 0) { e.preventDefault(); toggleChildren(d); }
+      else if (e.key === 'Escape' && openId) { openId = null; update(d); }
+    });
+  }
+
+  /* ---------- Render ---------- */
+  function update(source: any, dur = DURATION) {
+    compute();
+    setAllow();
+
+    const t: any = svg.transition().duration(dur);
+    const ox = source.px0 ?? source.px;
+    const oy = source.py0 ?? source.py;
+
+    const node = gNodes.selectAll('g.node').data(root.descendants(), (d: any) => d.id);
+    node.exit().transition(t)
+      .attr('transform', `translate(${source.px},${source.py})`)
+      .style('opacity', 0).remove();
+
+    const enter = node.enter().append('g')
+      .attr('class', (d: any) => `node depth-${d.depth}`)
+      .attr('role', 'treeitem')
+      .attr('tabindex', 0)
+      .attr('transform', `translate(${ox},${oy})`)
+      .style('opacity', 0);
+    build(enter);
+
+    const merged = enter.merge(node);
+    wrapTitles(merged.filter((d: any) => d.wrapW !== d.allow));
+    compute();                              // again, now that title and panel sizes are known
+
+    // Raise the open node (keeps its panel above neighbours) without losing the CSS transition
+    const openSel = gNodes.selectAll('g.node').filter((d: any) => d.id === openId);
+    if (!openSel.empty()) {
+      const n = openSel.node() as SVGGElement;
+      if (n !== gNodes.node().lastElementChild) {
+        const hadFocus = document.activeElement === n;
+        openSel.raise();
+        void (gNodes.node() as SVGGElement).getBoundingClientRect();
+        if (hadFocus) n.focus({ preventScroll: true });
+      }
+    }
+
+    merged
+      .classed('has-children', (d: any) => hasKids(d) && d.depth > 0)
+      .classed('collapsed', (d: any) => !!d._children)
+      .classed('open', (d: any) => d.id === openId)
+      .attr('aria-level', (d: any) => d.depth + 1)
+      .attr('aria-expanded', (d: any) => (hasKids(d) ? String(!!d.children) : null));
+    merged.select('a.more').attr('tabindex', (d: any) => (d.id === openId ? 0 : -1));
+    merged.select('button.close').attr('tabindex', (d: any) => (d.id === openId ? 0 : -1));
+    merged.select('foreignObject.body')
+      .attr('x', panelX)
+      .attr('y', panelY)
+      .attr('width', PANEL_W);
+
+    merged.transition(t)
+      .attr('transform', (d: any) => `translate(${d.px},${d.py})`)
+      .style('opacity', 1);
+
+    const link = gLinks.selectAll('path').data(root.links(), (d: any) => d.target.id);
+    link.exit().transition(t)
+      .attr('d', linkPath(source.px, source.py, source.px, source.py)).remove();
+    link.enter().append('path').attr('d', linkPath(ox, oy, ox, oy))
+      .merge(link)
+      .transition(t)
+      .attr('d', (d: any) => {
+        const [x1, y1, x2, y2] = edge(d);
+        return linkPath(x1, y1, x2, y2);
+      });
+
+    root.each((d: any) => { d.px0 = d.px; d.py0 = d.py; });
+  }
+
+  svg.on('click', (e: MouseEvent) => {
+    if (e.target === svg.node() && openId) { openId = null; update(root); }
+  });
+
+  /* ---------- Start (after fonts load and the graph is visible) ---------- */
+  const fontsReady = Promise.all([
+    document.fonts.load('40px "OTJubilee Diamond"'),
+    document.fonts.load('600 13px "Quicksand Variable"'),
+  ]).catch(() => {});
+
+  async function start() {
+    if (started || !el.clientWidth) return;
+    started = true;
+    await fontsReady;
+    w = el.clientWidth || w;
+    svg.attr('viewBox', `0 0 ${w} ${H}`);
+    update(root, 0);
+    ready = true;
+  }
+  start();
+
+  new ResizeObserver(() => {
+    if (!started) { start(); return; }
+    const nw = el.clientWidth;
+    if (!ready || !nw || nw === w) return;
+    w = nw;
+    svg.attr('viewBox', `0 0 ${w} ${H}`);
+    update(root, 0);
+  }).observe(el);
+</script>
+
+<style is:global>
+  /* Glass section: follows the light/dark tokens from global.css and theme.css */
+  .skills {
+    --sg-glass: color-mix(in srgb, var(--color-surface) 50%, transparent);
+    --sg-border: color-mix(in srgb, var(--color-ink) 12%, transparent);
+    --sg-fg: var(--color-ink);
+    --sg-line: var(--color-ink);
+    --sg-accent: var(--color-accent);
+
+    background: var(--sg-glass);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid var(--sg-border);
+    border-radius: 20px;
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim, rgb(255 255 255 / 0.4)),
+      0 10px 30px -10px var(--glass-shadow, rgb(34 8 0 / 0.25));
+    color: var(--color-ink);
+    padding: 2rem;
+  }
+  .skills h2 { margin: 0 0 1rem; }
+
+  #skills-graph { height: 760px; }
+  #skills-graph svg { width: 100%; height: 100%; display: block; background: transparent; overflow: visible; }
+  #skills-graph path { fill: none; stroke: var(--sg-line); stroke-opacity: .35; stroke-width: 1; }
+
+  #skills-graph .node { outline: none; }
+  #skills-graph circle.dot { fill: var(--sg-fg); transition: fill .3s ease, stroke-width .3s ease; }
+  #skills-graph circle.hit { fill: transparent; cursor: pointer; }
+  #skills-graph .node:focus-visible circle.dot { stroke: var(--sg-accent); stroke-width: 3; }
+  #skills-graph .node.open circle.dot { fill: transparent; stroke: var(--sg-fg); stroke-width: 3; }
+
+  /* Titles: leaf = Quicksand label */
+  #skills-graph .title {
+    fill: var(--sg-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    letter-spacing: var(--text-label--letter-spacing);
+    font-weight: var(--text-label--font-weight);
+    text-anchor: middle;
+    opacity: .65;
+    cursor: pointer;
+    transition: opacity .25s ease;
+  }
+  #skills-graph .depth-0 .title {
+    font-family: var(--font-display);
+    font-size: var(--text-heading-sm);
+    line-height: var(--text-heading-sm--line-height);
+    letter-spacing: var(--text-heading-sm--letter-spacing);
+    font-weight: var(--text-heading-sm--font-weight);
+    font-synthesis: none;
+  }
+  #skills-graph .depth-1 .title {
+    font-family: var(--font-display);
+    font-size: var(--text-body-lg);
+    line-height: var(--text-body-lg--line-height);
+    letter-spacing: var(--text-subheading--letter-spacing);
+    font-weight: var(--text-subheading--font-weight);
+    font-synthesis: none;
+  }
+  #skills-graph .node:hover .title,
+  #skills-graph .node:focus-visible .title,
+  #skills-graph .node.open .title { opacity: 1; }
+
+  #skills-graph .node.has-children .title {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+  }
+  #skills-graph .node.has-children:not(.collapsed) .title { text-decoration-style: dotted; }
+
+  /* Panel: sits below the title and animates in */
+  #skills-graph foreignObject.body { overflow: visible; pointer-events: none; }
+  #skills-graph .node.open foreignObject.body { pointer-events: auto; }
+
+  #skills-graph .card {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 1rem 1.1rem;
+    background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    opacity: 0;
+    transform: translateY(-10px) scale(.97);
+    transform-origin: top center;
+    transition: opacity .35s ease, transform .45s cubic-bezier(.2, .8, .2, 1);
+  }
+  #skills-graph .node.open .card { opacity: 1; transform: none; }
+
+  #skills-graph .card p {
+    margin: 0 1.25rem 0 0;
+    font-size: var(--text-body-sm);
+    line-height: var(--text-body-sm--line-height);
+    letter-spacing: var(--text-body-sm--letter-spacing);
+    font-weight: var(--text-body-sm--font-weight);
+  }
+  #skills-graph .card .close {
+    position: absolute; top: .45rem; right: .6rem;
+    background: none; border: 0; color: inherit; font-size: 20px; line-height: 1; cursor: pointer;
+    opacity: .6; transition: opacity .2s;
+  }
+  #skills-graph .card .close:hover { opacity: 1; }
+  #skills-graph .card a.more {
+    display: inline-block; margin-top: .75rem; padding: .35rem .75rem;
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    letter-spacing: var(--text-label--letter-spacing);
+    font-weight: var(--text-label--font-weight);
+    text-decoration: none; color: inherit;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 30%, transparent);
+    border-radius: 999px;
+    transition: background .25s ease;
+  }
+  #skills-graph .card a.more:hover { background: color-mix(in srgb, var(--color-ink) 8%, transparent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    #skills-graph .card,
+    #skills-graph .title,
+    #skills-graph circle.dot { transition: none; }
+  }
+
+  /* List: screen-reader only on desktop, visible plain list below 768px */
+  .skills-list {
+    position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  @media (max-width: 767px) {
+    #skills-graph { display: none; }
+    .skills-list {
+      position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal;
+      padding-left: 1.25rem; display: grid; gap: .6rem;
+      font-size: var(--text-body-sm);
+      line-height: var(--text-body-sm--line-height);
+    }
+    .skills-list a { text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+  }
+</style>

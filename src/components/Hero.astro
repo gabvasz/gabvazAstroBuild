@@ -1,0 +1,84 @@
+---
+interface Link {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  greeting?: string;
+  title: string;
+  subtitle?: string;
+  links?: Link[];
+}
+
+const { greeting, title, subtitle, links = [] } = Astro.props;
+---
+
+<section
+  class="relative flex min-h-svh items-center justify-center px-6 py-28 text-center text-ink"
+>
+  <div class="flex max-w-[90vw] flex-col items-center">
+    {
+      greeting && (
+        <p class="hero-in text-[clamp(16px,2vw,20px)] font-medium" style="--d:0ms">
+          {greeting}
+        </p>
+      )
+    }
+
+    <h1 class="hero-in mt-2 text-[clamp(44px,9vw,96px)] leading-[1]" style="--d:120ms">
+      {title}
+    </h1>
+
+    {
+      subtitle && (
+        <p class="hero-in mt-2 text-[clamp(16px,2vw,20px)] font-medium" style="--d:240ms">
+          {subtitle}
+        </p>
+      )
+    }
+
+    {
+      links.length > 0 && (
+        <nav
+          aria-label="Page sections"
+          class="hero-in mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3"
+          style="--d:380ms"
+        >
+          {links.map((link) => (
+            <a
+              href={link.href}
+              class="rounded-sm text-sm font-medium text-muted underline-offset-[6px] transition-colors duration-200 hover:text-ink hover:underline hover:decoration-accent focus-visible:text-ink"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+
+    <slot />
+  </div>
+</section>
+
+<style>
+  .hero-in {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: hero-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes hero-in {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-in {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

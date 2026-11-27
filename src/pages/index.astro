@@ -1,7 +1,10 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import Container from "../components/Container.astro";
-import HeaderBand from "../components/HeaderBand.astro";
+import Hero from "../components/Hero.astro";
+
+import SkillsGraph from '../components/SkillsGraph.astro';
+
 import ItemCard from "../components/ItemCard.astro";
 import StatCard from "../components/StatCard.astro";
 import PriceBlock from "../components/PriceBlock.astro";
@@ -12,35 +15,58 @@ import Badge from "../components/Badge.astro";
 ---
 
 <Layout title="Gab Vaz">
-  <HeaderBand kicker="Portfolio" title="Gab Vaz">
-    Warm paper, dark bands, one orange accent.
-  </HeaderBand>
-
   <main>
+  <Hero
+    greeting="hey i'm gab vaz"
+    title="i build websites"
+    subtitle="welcome to my portfolio"
+    links={[
+      { label: "explore my skills", href: "#skills" },
+      { label: "explore my latest work", href: "#work" },
+      { label: "ramblings and interests", href: "#interests" },
+    ]}
+  />
+
+<Container class="space-y-8 py-10">
+
+  <SkillsGraph />
+
+</Container>
+
+</main>
+
+
+
     <Container class="space-y-8 py-10">
-      <div class="grid gap-3.5 md:grid-cols-2">
-        <ItemCard title="Item card" number="01">
-          White, 1px border, 14px radius.
-          <Fragment slot="tags">
-            <Tag>Tag</Tag>
-            <Badge>3</Badge>
-          </Fragment>
-        </ItemCard>
-        <StatCard value="4" label="Stat card with accent numeral" />
-      </div>
+      <section id="skills" class="scroll-mt-24">
+        <div class="grid gap-3.5 md:grid-cols-2">
+          <ItemCard title="Item card" number="01">
+            White, 1px border, 14px radius.
+            <Fragment slot="tags">
+              <Tag>Tag</Tag>
+              <Badge>3</Badge>
+            </Fragment>
+          </ItemCard>
+          <StatCard value="4" label="Stat card with accent numeral" />
+        </div>
+      </section>
 
-      <PriceBlock label="Valor do desenvolvimento" amount="R$ 635 a R$ 750">
-        Valor único, separado da manutenção mensal.
-      </PriceBlock>
+      <section id="work" class="scroll-mt-24">
+        <PriceBlock label="Valor do desenvolvimento" amount="R$ 635 a R$ 750">
+          Valor único, separado da manutenção mensal.
+        </PriceBlock>
+      </section>
 
-      <Notice>Notice: accent left border on a chip background.</Notice>
+      <section id="interests" class="scroll-mt-24 space-y-8">
+        <Notice>Notice: accent left border on a chip background.</Notice>
 
-      <div class="flex flex-wrap gap-2.5">
-        <Status variant="success">Success</Status>
-        <Status variant="warning">Warning</Status>
-        <Status variant="error">Error</Status>
-        <Status variant="info">Info</Status>
-      </div>
+        <div class="flex flex-wrap gap-2.5">
+          <Status variant="success">Success</Status>
+          <Status variant="warning">Warning</Status>
+          <Status variant="error">Error</Status>
+          <Status variant="info">Info</Status>
+        </div>
+      </section>
     </Container>
-  </main>
+
 </Layout>
